@@ -49,58 +49,70 @@ This implementation plan creates a standalone Docker-based IREE compilation serv
     - **Property 2: Validation consistency**
     - **Validates: Requirements 6.4**
 
-- [-] 4. Create service interface and configuration system
-  - [-] 4.1 Implement JSON configuration schema
-    - Define input/output format specifications
-    - Create configuration validation logic
-    - Support multiple compilation targets and options
+- [x] 4. Create service interface and configuration system
+  - [x] 4.1 Set up local Python environment with uv
+    - Create pyproject.toml with dependencies (jsonschema, pydantic)
+    - Set up uv virtual environment for local validation
+    - Create requirements.txt for Docker image Python dependencies
+    - _Requirements: 3.3, 8.2_
+
+  - [x] 4.2 Implement JSON configuration schema and validation
+    - Define input/output format specifications in JSON schema
+    - Create Python validation logic using jsonschema + pydantic
+    - Support multiple compilation targets and options (CUDA, CPU, Vulkan, Metal)
+    - Run validation locally via uv before Docker compilation
     - _Requirements: 3.3, 8.2, 8.3, 8.4, 8.5_
 
-  - [ ] 4.2 Create volume mounting and file handling
+  - [x] 4.3 Create volume mounting and file handling
     - Implement secure input/output file management
     - Add temporary file cleanup mechanisms
+    - Integrate local Python validation with Docker orchestration
     - _Requirements: 10.3, 10.1_
 
-  - [ ]* 4.3 Write unit tests for configuration system
-    - Test JSON schema validation
+  - [ ]* 4.4 Write unit tests for configuration system
+    - Test JSON schema validation with pytest
     - Test file handling edge cases
+    - Set up uv-based test runner
     - _Requirements: 6.1, 10.3_
 
 - [ ] 5. Checkpoint - Ensure basic Docker compilation works
   - Ensure all tests pass, ask the user if questions arise.
 
-- [ ] 6. Create CLI wrapper and orchestration tools
-  - [ ] 6.1 Implement standalone CLI tool
-    - Create command-line interface for Docker container management
-    - Support simple compilation workflows
+- [x] 6. Create CLI wrapper and orchestration tools
+  - [x] 6.1 Implement standalone CLI tool with uv
+    - Create command-line interface using Python + uv for local execution
+    - Integrate local config validation with Docker container management
+    - Support simple compilation workflows with pre-validation
     - Add verbose logging and debugging options
     - _Requirements: 5.1, 5.2_
 
-  - [ ] 6.2 Create shell script wrappers
-    - Implement easy-to-use wrapper scripts for common operations
-    - Support local development workflows
+  - [x] 6.2 Create shell script wrappers
+    - Implement easy-to-use wrapper scripts that call uv Python tools
+    - Support local development workflows with uv environment
+    - Bridge between uv Python validation and Docker compilation
     - _Requirements: 2.4, 5.1_
 
   - [ ]* 6.3 Write integration tests for CLI tools
-    - Test end-to-end compilation workflows
+    - Test end-to-end compilation workflows with uv + Docker
     - Test error handling and user feedback
     - _Requirements: 6.3, 5.5_
 
-- [ ] 7. Implement Gradle build integration
-  - [ ] 7.1 Create Gradle plugin structure
-    - Set up Gradle plugin project structure
-    - Define plugin extension and configuration DSL
-    - _Requirements: 1.1, 7.1_
+- [ ] 7. Add CPU and multi-backend support
+  - [ ] 7.1 Create CPU Docker image
+    - Create Dockerfile for CPU-optimized IREE compiler
+    - Support x86-64 and ARM64 architectures
+    - Add CPU-specific optimization flags
+    - _Requirements: 2.2, 8.2_
 
-  - [ ] 7.2 Implement compileWithIree Gradle task
-    - Create Gradle task that orchestrates Docker compilation
-    - Integrate with existing build system patterns
-    - Support multiple target compilation
-    - _Requirements: 1.1, 1.4, 7.2_
+  - [ ] 7.2 Extend configuration system for multi-backend support
+    - Update JSON schema to support CPU, Vulkan, and Metal targets
+    - Add target-specific validation logic
+    - Update CLI to handle multiple backend options
+    - _Requirements: 8.2, 8.3, 8.4, 8.5_
 
-  - [ ]* 7.3 Write property tests for Gradle integration
-    - **Property 3: Build system integration**
-    - **Validates: Requirements 1.1, 7.2**
+  - [ ]* 7.3 Write property tests for multi-backend compilation
+    - **Property 3: Multi-backend consistency**
+    - **Validates: Requirements 8.2, 8.3, 8.4, 8.5**
 
 - [ ] 8. Add GitHub Actions CI/CD integration
   - [ ] 8.1 Create GitHub Actions workflow files
@@ -163,3 +175,6 @@ This implementation plan creates a standalone Docker-based IREE compilation serv
 - Property tests validate universal correctness properties
 - Unit tests validate specific examples and edge cases
 - Focus on CUDA targets initially, with architecture for future backend expansion
+- **Python Environment**: Use uv for local Python environment management and dependency isolation
+- **Hybrid Approach**: Python (via uv) for configuration validation locally, Docker for IREE compilation
+- **Development Workflow**: Local validation → Docker compilation → Local result processing

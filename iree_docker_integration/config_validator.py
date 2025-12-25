@@ -1,17 +1,15 @@
-#!/usr/bin/env python3
 """
-IREE Configuration Validation Script
+Configuration Validator Module
 
-This script validates IREE compilation configuration files against the JSON schema
-and provides detailed error reporting and configuration normalization.
+Validates and normalizes IREE compilation configurations using JSON schema.
+This module is imported from the existing scripts/validate-config.py implementation.
 
 Requirements: 3.3, 8.2, 8.3, 8.4, 8.5
 """
 
 import json
-import sys
 import os
-import argparse
+import sys
 from pathlib import Path
 from typing import Dict, Any, List, Optional, Tuple
 
@@ -19,8 +17,7 @@ try:
     import jsonschema
     from jsonschema import validate, ValidationError, Draft7Validator
 except ImportError:
-    print("Error: jsonschema package is required. Install with: pip install jsonschema", file=sys.stderr)
-    sys.exit(1)
+    raise ImportError("jsonschema package is required. Install with: pip install jsonschema")
 
 
 class ConfigValidator:
@@ -29,9 +26,9 @@ class ConfigValidator:
     def __init__(self, schema_path: Optional[str] = None):
         """Initialize validator with schema."""
         if schema_path is None:
-            # Default schema path relative to script location
-            script_dir = Path(__file__).parent.parent
-            schema_path = script_dir / "config" / "schema" / "compile-config-schema.json"
+            # Default schema path relative to project root
+            project_root = Path(__file__).parent.parent
+            schema_path = project_root / "config" / "schema" / "compile-config-schema.json"
         
         self.schema_path = Path(schema_path)
         self.schema = self._load_schema()
@@ -291,94 +288,3 @@ class ConfigValidator:
             })
         
         return base_config
-
-
-def main():
-    """Main CLI entry point."""
-    parser = argparse.ArgumentParser(
-        description="Validate IREE compilation configuration files",
-        formatter_class=argparse.RawDescriptionHelpFormatter,
-        epilog="""
-Examples:
-  %(prog)s config.json                    # Validate configuration file
-  %(prog)s --normalize config.json        # Validate and normalize configuration
-  %(prog)s --generate-example cuda        # Generate example CUDA configuration
-  %(prog)s --generate-example cpu         # Generate example CPU configuration
-        """
-    )
-    
-    parser.add_argument('config_file', nargs='?', help='Configuration file to validate')
-    parser.add_argument('--schema', help='Path to JSON schema file')
-    parser.add_argument('--normalize', action='store_true', help='Normalize configuration and output result')
-    parser.add_argument('--generate-example', choices=['cuda', 'cpu', 'vulkan', 'metal'], 
-                       help='Generate example configuration for target')
-    parser.add_argument('--output', '-o', help='Output file for normalized/generated configuration')
-    parser.add_argument('--verbose', '-v', action='store_true', help='Verbose output')
-    
-    args = parser.parse_args()
-    
-    try:
-        validator = ConfigValidator(args.schema)
-        
-        if args.generate_example:
-            # Generate example configuration
-            example_config = validator.generate_example_config(args.generate_example)
-            
-            if args.output:
-                with open(args.output, 'w') as f:
-                    json.dump(example_config, f, indent=2)
-                print(f"Example {args.generate_example} configuration written to {args.output}")
-            else:
-                print(json.dumps(example_config, indent=2))
-            
-            return 0
-        
-        if not args.config_file:
-            parser.error("config_file is required unless --generate-example is used")
-        
-        # Load configuration file
-        try:
-            with open(args.config_file, 'r') as f:
-                config = json.load(f)
-        except FileNotFoundError:
-            print(f"Error: Configuration file not found: {args.config_file}", file=sys.stderr)
-            return 1
-        except json.JSONDecodeError as e:
-            print(f"Error: Invalid JSON in configuration file: {e}", file=sys.stderr)
-            return 1
-        
-        # Validate configuration
-        is_valid, errors = validator.validate_config(config)
-        
-        if args.verbose:
-            print(f"Validating configuration: {args.config_file}")
-            print(f"Schema: {validator.schema_path}")
-        
-        if is_valid:
-            print("✓ Configuration is valid")
-            
-            if args.normalize:
-                normalized_config = validator.normalize_config(config)
-                
-                if args.output:
-                    with open(args.output, 'w') as f:
-                        json.dump(normalized_config, f, indent=2)
-                    print(f"Normalized configuration written to {args.output}")
-                else:
-                    print("\nNormalized configuration:")
-                    print(json.dumps(normalized_config, indent=2))
-            
-            return 0
-        else:
-            print("✗ Configuration validation failed:")
-            for error in errors:
-                print(f"  - {error}")
-            return 1
-    
-    except Exception as e:
-        print(f"Error: {e}", file=sys.stderr)
-        return 1
-
-
-if __name__ == '__main__':
-    sys.exit(main())

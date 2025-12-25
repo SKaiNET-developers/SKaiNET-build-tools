@@ -1,0 +1,47 @@
+[project]
+name = "iree-docker-integration"
+version = "0.1.0"
+description = "Docker-based IREE compilation service with CLI tools"
+authors = [
+    {name = "IREE Docker Integration", email = "dev@skainet.org"}
+]
+readme = "README.md"
+requires-python = ">=3.8"
+dependencies = [
+    "jsonschema>=4.0.0",
+    "pydantic>=2.0.0",
+    "click>=8.0.0",
+    "docker>=6.0.0",
+    "pyyaml>=6.0.0",
+    "rich>=13.0.0",
+]
+
+[project.optional-dependencies]
+dev = [
+    "pytest>=7.0.0",
+    "pytest-cov>=4.0.0",
+    "black>=23.0.0",
+    "isort>=5.0.0",
+    "mypy>=1.0.0",
+]
+
+[project.scripts]
+iree-docker-compile = "iree_docker_integration.cli:main"
+
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"
+
+[tool.black]
+line-length = 100
+target-version = ['py38']
+
+[tool.isort]
+profile = "black"
+line_length = 100
+
+[tool.mypy]
+python_version = "3.8"
+warn_return_any = true
+warn_unused_configs = true
+disallow_untyped_defs = true

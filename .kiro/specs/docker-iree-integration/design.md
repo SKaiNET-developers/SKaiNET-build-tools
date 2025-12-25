@@ -30,6 +30,14 @@ iree-compiler:cuda-latest
 
 ### 2. Service Interface
 
+#### Local Python Environment (uv-managed)
+```bash
+# Local validation environment
+uv venv .venv
+uv pip install jsonschema pydantic click
+uv run python scripts/validate-config.py config.json
+```
+
 #### Input Format
 ```json
 {
@@ -67,13 +75,15 @@ iree-compiler:cuda-latest
 
 ```mermaid
 graph TD
-    A[StableHLO MLIR Input] --> B[Input Validation]
-    B --> C[IREE Compile]
-    C --> D[CUDA Backend Optimization]
-    D --> E[Module Generation]
-    E --> F[Output Validation]
-    F --> G[Optional Benchmarking]
-    G --> H[Results Package]
+    A[StableHLO MLIR Input] --> B[Local Python Validation via uv]
+    B --> C[Config Normalization]
+    C --> D[Docker Container Launch]
+    D --> E[IREE Compile in Container]
+    E --> F[CUDA Backend Optimization]
+    F --> G[Module Generation]
+    G --> H[Output Validation in Container]
+    H --> I[Local Python Result Processing]
+    I --> J[Results Package]
 ```
 
 ### 4. Docker Container Variants
@@ -92,7 +102,21 @@ graph TD
 
 ### Phase 1: CUDA-First Implementation
 
-1. **Base Docker Image**
+1. **Local Python Environment Setup**
+   ```bash
+   # Set up uv environment for local validation
+   uv venv .venv
+   uv pip install jsonschema pydantic click pytest
+   
+   # Create pyproject.toml for dependency management
+   echo '[project]
+   name = "iree-docker-integration"
+   dependencies = ["jsonschema>=4.0", "pydantic>=2.0", "click>=8.0"]
+   [project.optional-dependencies]
+   dev = ["pytest>=7.0", "pytest-cov>=4.0"]' > pyproject.toml
+   ```
+
+2. **Base Docker Image**
    ```dockerfile
    FROM nvidia/cuda:12.3-devel-ubuntu22.04
    
@@ -127,37 +151,48 @@ graph TD
 
 3. **Usage Interface**
    ```bash
-   # Simple compilation
+   # Local validation first, then Docker compilation
+   uv run python scripts/validate-config.py config.json --normalize
+   
+   # Docker compilation with pre-validated config
    docker run --gpus all \
      -v $(pwd)/input:/input \
      -v $(pwd)/output:/output \
      -v $(pwd)/config:/config \
      iree-compiler:cuda-latest
    
-   # With custom configuration
-   echo '{"input_file":"/input/model.mlir","target":"cuda"}' > config.json
-   docker run --gpus all \
-     -v $(pwd)/model.mlir:/input/model.mlir \
-     -v $(pwd)/output:/output \
-     -v $(pwd)/config.json:/config/compile_config.json \
-     iree-compiler:cuda-latest
-   ```
-
-### Phase 2: Service Orchestration
-
-1. **REST API Wrapper** (Optional)
-   - HTTP endpoint for remote compilation
-   - Job queue for batch processing
-   - Status monitoring and logging
-
-2. **CLI Tool**
-   ```bash
-   # Standalone CLI that manages Docker containers
-   iree-docker-compile \
+   # Integrated workflow via CLI
+   uv run python cli/iree-docker-compile \
      --input model.mlir \
      --target cuda \
      --output model.vmfb \
      --arch sm_80
+   ```
+
+### Phase 2: Service Orchestration
+
+1. **Local Python CLI Tool**
+   ```bash
+   # uv-managed CLI that orchestrates validation + Docker
+   uv run iree-docker-compile \
+     --input model.mlir \
+     --target cuda \
+     --output model.vmfb \
+     --arch sm_80 \
+     --validate-locally  # Pre-validate before Docker
+   ```
+
+2. **REST API Wrapper** (Optional)
+2. **REST API Wrapper** (Optional)
+   - HTTP endpoint for remote compilation
+   - Job queue for batch processing
+   - Status monitoring and logging
+
+3. **Shell Script Wrappers**
+   ```bash
+   # Wrapper that uses uv internally
+   ./scripts/compile-with-iree.sh model.mlir cuda model.vmfb
+   # Internally calls: uv run python cli/iree-docker-compile ...
    ```
 
 ## Key Benefits of This Architecture
@@ -167,7 +202,9 @@ graph TD
 3. **Hardware Optimization**: CUDA-first approach with specific GPU targeting
 4. **Scalable**: Easy to add new backends (CPU, Vulkan, Metal)
 5. **Containerized**: Consistent compilation environment across platforms
-6. **Validation Built-in**: Automatic output validation and benchmarking
+6. **Validation Built-in**: Local Python validation prevents Docker failures
+7. **Developer Friendly**: uv provides fast, isolated Python environment
+8. **Hybrid Approach**: Python for complex validation, Docker for compilation isolation
 
 ## Integration Points
 
@@ -183,11 +220,13 @@ graph TD
 
 ## Next Steps
 
-1. Create base CUDA Docker image with IREE toolchain
-2. Implement compilation scripts with CUDA optimization
-3. Add validation and benchmarking capabilities
-4. Create simple CLI wrapper for ease of use
-5. Test with various StableHLO MLIR inputs
-6. Document usage patterns and best practices
+1. Set up local uv environment with Python dependencies
+2. Create base CUDA Docker image with IREE toolchain
+3. Implement local Python configuration validation with uv
+4. Create compilation scripts with CUDA optimization
+5. Add validation and benchmarking capabilities
+6. Create uv-based CLI wrapper for ease of use
+7. Test with various StableHLO MLIR inputs
+8. Document usage patterns and uv setup procedures
 
 This architecture provides a clean, standalone solution that focuses on CUDA compilation while remaining extensible for future backend support.

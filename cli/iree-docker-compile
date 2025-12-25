@@ -1,7 +1,16 @@
 #!/bin/bash
 # IREE Docker Compilation CLI Tool
-# This script will be implemented in later tasks
+# Wrapper script that calls the Python CLI implementation
 
-echo "IREE Docker Compilation CLI - Implementation pending"
-echo "Usage: iree-docker-compile --input <file> --target <target> --output <file>"
-exit 1
+# Check if uv is available
+if command -v uv >/dev/null 2>&1; then
+    # Use uv to run the Python CLI
+    exec uv run python -m iree_docker_integration.cli "$@"
+elif command -v python3 >/dev/null 2>&1; then
+    # Fallback to system Python
+    exec python3 -m iree_docker_integration.cli "$@"
+else
+    echo "Error: Neither uv nor python3 is available"
+    echo "Please install uv (recommended) or Python 3.8+"
+    exit 1
+fi

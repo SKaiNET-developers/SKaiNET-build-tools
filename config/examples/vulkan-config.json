@@ -1,9 +1,9 @@
 {
   "input_file": "/input/model.mlir",
   "output_file": "/output/model.vmfb",
-  "target": "cuda",
+  "target": "vulkan",
   "optimization_level": "O3",
-  "target_features": ["sm_80", "sm_86"],
+  "target_features": ["spirv1.3"],
   "output_format": "vmfb",
   "validation": true,
   "benchmark": false,
@@ -15,16 +15,15 @@
     "memory_planning": "default"
   },
   "target_specific": {
-    "cuda": {
-      "compute_capability": ["sm_80", "sm_86"],
-      "max_threads_per_block": 256,
-      "use_fast_math": false
+    "vulkan": {
+      "spirv_version": "1.3",
+      "vulkan_version": "1.1"
     }
   },
   "metadata": {
-    "description": "Example CUDA IREE compilation configuration",
+    "description": "Example Vulkan IREE compilation configuration",
     "version": "1.0",
     "author": "SKaiNET Build Tools",
-    "tags": ["cuda", "gpu", "inference"]
+    "tags": ["vulkan", "gpu", "cross-platform"]
   }
 }

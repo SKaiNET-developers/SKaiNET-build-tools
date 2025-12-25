@@ -1,11 +1,30 @@
 {
   "input_file": "/input/model.mlir",
+  "output_file": "/output/model.vmfb",
   "target": "cuda",
   "optimization_level": "O3",
   "target_features": ["sm_80", "sm_86"],
   "output_format": "vmfb",
-  "output_file": "/output/model.vmfb",
   "validation": true,
   "benchmark": false,
-  "verbose": false
+  "verbose": false,
+  "compilation_options": {
+    "enable_assertions": false,
+    "strip_debug_info": true,
+    "enable_profiling": false,
+    "memory_planning": "default"
+  },
+  "target_specific": {
+    "cuda": {
+      "compute_capability": ["sm_80", "sm_86"],
+      "max_threads_per_block": 256,
+      "use_fast_math": false
+    }
+  },
+  "metadata": {
+    "description": "Example CUDA IREE compilation configuration for compile script",
+    "version": "1.0",
+    "author": "SKaiNET Build Tools",
+    "tags": ["cuda", "compilation", "docker"]
+  }
 }
