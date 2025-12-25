@@ -1,6 +1,8 @@
 # Compiled class file
 *.class
 
+.gradle
+
 # Log file
 *.log
 
@@ -25,3 +27,30 @@ replay_pid*
 
 # Kotlin Gradle plugin data, see https://kotlinlang.org/docs/whatsnew20.html#new-directory-for-kotlin-data-in-gradle-projects
 .kotlin/
+# IREE Docker Integration specific
+output/*.vmfb
+output/*.bin
+input/*.mlir
+config/compile_config.json
+*.tmp
+*.temp
+
+# Docker build context
+docker/*/scripts/compile.sh
+docker/*/scripts/validate.sh
+docker/*/scripts/benchmark.sh
+
+# Development and testing
+test-output/
+benchmark-results/
+validation-logs/
+
+# IDE and editor files
+.vscode/
+.idea/
+*.swp
+*.swo
+
+# OS specific
+.DS_Store
+Thumbs.db

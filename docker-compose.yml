@@ -1,0 +1,36 @@
+version: '3.8'
+
+services:
+  iree-cuda:
+    build:
+      context: ./docker/cuda
+      dockerfile: Dockerfile
+    image: iree-compiler:cuda-latest
+    volumes:
+      - ./input:/input
+      - ./output:/output
+      - ./config:/config
+    runtime: nvidia
+    environment:
+      - NVIDIA_VISIBLE_DEVICES=all
+      - NVIDIA_DRIVER_CAPABILITIES=compute,utility
+    profiles:
+      - cuda
+
+  iree-cpu:
+    build:
+      context: ./docker/cpu
+      dockerfile: Dockerfile
+    image: iree-compiler:cpu-latest
+    volumes:
+      - ./input:/input
+      - ./output:/output
+      - ./config:/config
+    profiles:
+      - cpu
+
+# Default volumes for development
+volumes:
+  input:
+  output:
+  config:

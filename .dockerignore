@@ -1,0 +1,38 @@
+# Git and version control
+.git
+.gitignore
+
+# Build artifacts
+.gradle/
+build/
+target/
+*.class
+*.jar
+
+# IDE files
+.idea/
+.vscode/
+*.swp
+*.swo
+
+# OS files
+.DS_Store
+Thumbs.db
+
+# Documentation (not needed in containers)
+docs/
+*.md
+
+# Test files and examples
+test/
+tests/
+examples/
+
+# Temporary files
+tmp/
+temp/
+*.tmp
+
+# Logs
+*.log
+logs/

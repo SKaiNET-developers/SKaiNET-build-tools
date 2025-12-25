@@ -1,0 +1,304 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "$id": "https://skainet.org/schemas/iree-compile-config.json",
+  "title": "IREE Compilation Configuration Schema",
+  "description": "Schema for IREE Docker compilation service configuration",
+  "type": "object",
+  "required": ["input_file"],
+  "properties": {
+    "input_file": {
+      "type": "string",
+      "description": "Path to input StableHLO MLIR file",
+      "pattern": "^/input/.+\\.mlir$",
+      "examples": ["/input/model.mlir", "/input/network.mlir"]
+    },
+    "output_file": {
+      "type": "string",
+      "description": "Path to output compiled module file",
+      "pattern": "^/output/.+\\.(vmfb|so|dylib)$",
+      "default": "/output/model.vmfb",
+      "examples": ["/output/model.vmfb", "/output/compiled.so"]
+    },
+    "target": {
+      "type": "string",
+      "description": "Compilation target backend",
+      "enum": ["cuda", "cpu", "vulkan", "metal"],
+      "default": "cuda"
+    },
+    "optimization_level": {
+      "type": "string",
+      "description": "LLVM optimization level",
+      "enum": ["O0", "O1", "O2", "O3"],
+      "default": "O3"
+    },
+    "target_features": {
+      "type": "array",
+      "description": "Target-specific feature flags",
+      "items": {
+        "type": "string"
+      },
+      "uniqueItems": true,
+      "examples": [
+        ["sm_80", "sm_86"],
+        ["avx2", "fma"],
+        ["spirv1.3"]
+      ]
+    },
+    "output_format": {
+      "type": "string",
+      "description": "Output module format",
+      "enum": ["vmfb", "so", "dylib"],
+      "default": "vmfb"
+    },
+    "validation": {
+      "type": "boolean",
+      "description": "Enable output validation",
+      "default": true
+    },
+    "benchmark": {
+      "type": "boolean",
+      "description": "Enable performance benchmarking",
+      "default": false
+    },
+    "verbose": {
+      "type": "boolean",
+      "description": "Enable verbose logging and debug output",
+      "default": false
+    },
+    "compilation_options": {
+      "type": "object",
+      "description": "Advanced compilation options",
+      "properties": {
+        "enable_assertions": {
+          "type": "boolean",
+          "description": "Enable runtime assertions",
+          "default": false
+        },
+        "strip_debug_info": {
+          "type": "boolean",
+          "description": "Strip debug information from output",
+          "default": true
+        },
+        "enable_profiling": {
+          "type": "boolean",
+          "description": "Enable profiling instrumentation",
+          "default": false
+        },
+        "memory_planning": {
+          "type": "string",
+          "description": "Memory planning strategy",
+          "enum": ["default", "aggressive", "conservative"],
+          "default": "default"
+        }
+      },
+      "additionalProperties": false
+    },
+    "target_specific": {
+      "type": "object",
+      "description": "Target-specific configuration options",
+      "properties": {
+        "cuda": {
+          "type": "object",
+          "description": "CUDA-specific options",
+          "properties": {
+            "compute_capability": {
+              "type": "array",
+              "description": "CUDA compute capabilities to target",
+              "items": {
+                "type": "string",
+                "pattern": "^sm_[0-9]{2}$"
+              },
+              "examples": [["sm_80", "sm_86", "sm_89"]]
+            },
+            "max_threads_per_block": {
+              "type": "integer",
+              "description": "Maximum threads per CUDA block",
+              "minimum": 32,
+              "maximum": 1024,
+              "default": 256
+            },
+            "use_fast_math": {
+              "type": "boolean",
+              "description": "Enable fast math optimizations",
+              "default": false
+            }
+          },
+          "additionalProperties": false
+        },
+        "cpu": {
+          "type": "object",
+          "description": "CPU-specific options",
+          "properties": {
+            "target_cpu": {
+              "type": "string",
+              "description": "Target CPU architecture",
+              "enum": ["generic", "native", "x86-64", "arm64"],
+              "default": "generic"
+            },
+            "vector_extensions": {
+              "type": "array",
+              "description": "CPU vector extensions to use",
+              "items": {
+                "type": "string",
+                "enum": ["sse", "sse2", "sse3", "ssse3", "sse4.1", "sse4.2", "avx", "avx2", "avx512", "neon"]
+              },
+              "uniqueItems": true
+            },
+            "num_threads": {
+              "type": "integer",
+              "description": "Number of CPU threads to use",
+              "minimum": 1,
+              "maximum": 128,
+              "default": 0
+            }
+          },
+          "additionalProperties": false
+        },
+        "vulkan": {
+          "type": "object",
+          "description": "Vulkan-specific options",
+          "properties": {
+            "spirv_version": {
+              "type": "string",
+              "description": "Target SPIR-V version",
+              "enum": ["1.0", "1.1", "1.2", "1.3", "1.4", "1.5", "1.6"],
+              "default": "1.3"
+            },
+            "vulkan_version": {
+              "type": "string",
+              "description": "Target Vulkan API version",
+              "enum": ["1.0", "1.1", "1.2", "1.3"],
+              "default": "1.1"
+            }
+          },
+          "additionalProperties": false
+        },
+        "metal": {
+          "type": "object",
+          "description": "Metal-specific options",
+          "properties": {
+            "metal_version": {
+              "type": "string",
+              "description": "Target Metal shading language version",
+              "enum": ["2.0", "2.1", "2.2", "2.3", "2.4", "3.0"],
+              "default": "2.4"
+            },
+            "ios_deployment_target": {
+              "type": "string",
+              "description": "iOS deployment target version",
+              "pattern": "^[0-9]+\\.[0-9]+$",
+              "examples": ["13.0", "14.0", "15.0"]
+            },
+            "macos_deployment_target": {
+              "type": "string",
+              "description": "macOS deployment target version",
+              "pattern": "^[0-9]+\\.[0-9]+$",
+              "examples": ["10.15", "11.0", "12.0"]
+            }
+          },
+          "additionalProperties": false
+        }
+      },
+      "additionalProperties": false
+    },
+    "metadata": {
+      "type": "object",
+      "description": "Optional metadata for the compilation",
+      "properties": {
+        "description": {
+          "type": "string",
+          "description": "Human-readable description of the compilation"
+        },
+        "version": {
+          "type": "string",
+          "description": "Configuration version",
+          "pattern": "^[0-9]+\\.[0-9]+$"
+        },
+        "author": {
+          "type": "string",
+          "description": "Configuration author"
+        },
+        "tags": {
+          "type": "array",
+          "description": "Tags for categorizing the compilation",
+          "items": {
+            "type": "string"
+          },
+          "uniqueItems": true
+        }
+      },
+      "additionalProperties": true
+    }
+  },
+  "additionalProperties": false,
+  "allOf": [
+    {
+      "if": {
+        "properties": {
+          "target": {
+            "const": "cuda"
+          }
+        }
+      },
+      "then": {
+        "properties": {
+          "target_features": {
+            "items": {
+              "pattern": "^sm_[0-9]{2}$"
+            }
+          }
+        }
+      }
+    },
+    {
+      "if": {
+        "properties": {
+          "target": {
+            "const": "cpu"
+          }
+        }
+      },
+      "then": {
+        "properties": {
+          "target_features": {
+            "items": {
+              "enum": ["sse", "sse2", "sse3", "ssse3", "sse4.1", "sse4.2", "avx", "avx2", "avx512", "neon", "generic", "native"]
+            }
+          }
+        }
+      }
+    },
+    {
+      "if": {
+        "properties": {
+          "output_format": {
+            "const": "vmfb"
+          }
+        }
+      },
+      "then": {
+        "properties": {
+          "output_file": {
+            "pattern": "^/output/.+\\.vmfb$"
+          }
+        }
+      }
+    },
+    {
+      "if": {
+        "properties": {
+          "output_format": {
+            "const": "so"
+          }
+        }
+      },
+      "then": {
+        "properties": {
+          "output_file": {
+            "pattern": "^/output/.+\\.so$"
+          }
+        }
+      }
+    }
+  ]
+}

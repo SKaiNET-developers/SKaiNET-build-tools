@@ -1,0 +1,13 @@
+{
+  "input_file": "/input/model.mlir",
+  "target": "cuda",
+  "optimization_level": "O3",
+  "target_features": ["sm_80", "sm_86"],
+  "output_format": "vmfb",
+  "validation": true,
+  "benchmark": false,
+  "metadata": {
+    "description": "Example IREE compilation configuration",
+    "version": "1.0"
+  }
+}

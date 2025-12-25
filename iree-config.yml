@@ -1,0 +1,30 @@
+# IREE Docker Integration Configuration
+project:
+  name: "iree-docker-integration"
+  version: "1.0.0"
+  description: "Standalone Docker-based IREE compilation service"
+
+docker:
+  images:
+    cuda:
+      name: "iree-compiler:cuda-latest"
+      base: "nvidia/cuda:12.3-devel-ubuntu22.04"
+      dockerfile: "docker/cuda/Dockerfile"
+    cpu:
+      name: "iree-compiler:cpu-latest"
+      base: "ubuntu:22.04"
+      dockerfile: "docker/cpu/Dockerfile"
+
+iree:
+  version: "20241220.123"
+  targets:
+    - cuda
+    - cpu
+    - vulkan  # Future support
+    - metal   # Future support
+
+compilation:
+  default_target: "cuda"
+  default_optimization: "O3"
+  validation_enabled: true
+  benchmark_enabled: false

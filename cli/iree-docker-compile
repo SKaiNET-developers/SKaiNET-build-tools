@@ -1,0 +1,7 @@
+#!/bin/bash
+# IREE Docker Compilation CLI Tool
+# This script will be implemented in later tasks
+
+echo "IREE Docker Compilation CLI - Implementation pending"
+echo "Usage: iree-docker-compile --input <file> --target <target> --output <file>"
+exit 1
