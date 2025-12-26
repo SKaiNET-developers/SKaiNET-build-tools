@@ -3,12 +3,14 @@ Docker Manager Module
 
 Manages Docker container execution for IREE compilation.
 Handles image management, container orchestration, and result processing.
+Integrates with SecureFileHandler for secure file operations.
 
-Requirements: 5.1, 5.2
+Requirements: 5.1, 5.2, 10.1, 10.3
 """
 
 import json
 import os
+import shutil
 import tempfile
 import time
 from pathlib import Path
@@ -20,15 +22,24 @@ try:
 except ImportError:
     raise ImportError("docker package is required. Install with: pip install docker")
 
+from .file_handler import SecureFileHandler
+
 
 class DockerManager:
-    """Manages Docker operations for IREE compilation."""
+    """Manages Docker operations for IREE compilation with secure file handling."""
     
-    def __init__(self, verbose: bool = False, debug: bool = False):
-        """Initialize Docker manager."""
+    def __init__(self, verbose: bool = False, debug: bool = False, 
+                 input_dir: Optional[Path] = None, output_dir: Optional[Path] = None):
+        """Initialize Docker manager with file handler."""
         self.verbose = verbose
         self.debug = debug
         self.client = None
+        
+        # Initialize secure file handler
+        self.file_handler = SecureFileHandler(
+            base_input_dir=input_dir or Path("input"),
+            base_output_dir=output_dir or Path("output")
+        )
         
         # Image name mapping
         self.image_names = {
@@ -182,99 +193,170 @@ class DockerManager:
         except DockerException:
             return {'Error': 'Unable to get Docker system information'}
     
-    def run_compilation(self, config: Dict[str, Any], input_path: Path, output_path: Path) -> Dict[str, Any]:
-        """Run IREE compilation in Docker container."""
+    def run_compilation(self, config: Dict[str, Any], source_input_path: Path, 
+                       target_output_path: Optional[Path] = None) -> Dict[str, Any]:
+        """
+        Run IREE compilation in Docker container with secure file handling.
+        
+        Args:
+            config: Compilation configuration
+            source_input_path: Path to source MLIR file
+            target_output_path: Optional target output path
+            
+        Returns:
+            Compilation result dictionary
+        """
         try:
             if not self.client:
                 self.client = docker.from_env()
             
-            # Prepare directories
-            input_dir = input_path.parent
-            output_dir = output_path.parent
-            output_dir.mkdir(parents=True, exist_ok=True)
-            
-            # Create temporary config file
-            with tempfile.NamedTemporaryFile(mode='w', suffix='.json', delete=False) as f:
-                json.dump(config, f, indent=2)
-                config_file = Path(f.name)
-            
+            # Prepare input file securely
             try:
-                # Prepare volumes
-                volumes = {
-                    str(input_dir): {'bind': '/input', 'mode': 'ro'},
-                    str(output_dir): {'bind': '/output', 'mode': 'rw'},
-                    str(config_file.parent): {'bind': '/config', 'mode': 'ro'}
-                }
-                
-                # Prepare environment variables
-                environment = {
-                    'CONFIG_FILE': f'/config/{config_file.name}',
-                    'VERBOSE': '1' if self.verbose else '0',
-                    'DEBUG': '1' if self.debug else '0'
-                }
-                
-                # Get image name
-                image_name = self.get_image_name(config['target'])
-                
+                prepared_input = self.file_handler.prepare_input_file(source_input_path)
                 if self.verbose:
-                    print(f"Running compilation with image: {image_name}")
-                    print(f"Input directory: {input_dir}")
-                    print(f"Output directory: {output_dir}")
-                
-                # Run container
-                start_time = time.time()
-                
-                container = self.client.containers.run(
-                    image_name,
-                    volumes=volumes,
-                    environment=environment,
-                    remove=True,
-                    detach=False,
-                    stdout=True,
-                    stderr=True
-                )
-                
-                compilation_time = time.time() - start_time
-                
-                # Parse container output
-                output_lines = container.decode('utf-8').split('\n')
-                
-                # Check if compilation was successful
-                success = any('SUCCESS' in line for line in output_lines)
-                
-                # Extract results
-                result = {
-                    'success': success,
-                    'compilation_time': f"{compilation_time:.2f}s",
-                    'logs': '\n'.join(output_lines)
+                    print(f"Prepared input file: {prepared_input}")
+            except ValueError as e:
+                return {
+                    'success': False,
+                    'error': f'Input file preparation failed: {e}',
+                    'logs': str(e)
                 }
-                
-                # Check if output file was created
-                if output_path.exists():
-                    result['output_size'] = self._format_size(output_path.stat().st_size)
-                    result['output_file'] = str(output_path)
-                else:
-                    result['success'] = False
-                    if 'error' not in result:
-                        result['error'] = 'Output file was not created'
-                
-                # Parse additional results from container output
-                for line in output_lines:
-                    if line.startswith('VALIDATION_RESULT:'):
-                        result['validation_result'] = line.split(':', 1)[1].strip()
-                    elif line.startswith('BENCHMARK_LATENCY:'):
-                        result['benchmark_results'] = result.get('benchmark_results', {})
-                        result['benchmark_results']['latency_ms'] = float(line.split(':', 1)[1].strip())
-                    elif line.startswith('BENCHMARK_THROUGHPUT:'):
-                        result['benchmark_results'] = result.get('benchmark_results', {})
-                        result['benchmark_results']['throughput_ops_per_sec'] = float(line.split(':', 1)[1].strip())
-                
-                return result
-                
-            finally:
-                # Clean up temporary config file
-                if config_file.exists():
-                    config_file.unlink()
+            
+            # Prepare output directory and file path
+            output_filename = None
+            if target_output_path:
+                output_filename = target_output_path.name
+            elif 'output_file' in config:
+                output_filename = Path(config['output_file']).name
+            
+            prepared_output = self.file_handler.prepare_output_directory(output_filename)
+            if self.verbose:
+                print(f"Prepared output path: {prepared_output}")
+            
+            # Create volume mappings and config file
+            try:
+                with self.file_handler.temporary_directory("docker_config_") as temp_dir:
+                    # Create config file in temporary directory
+                    config_file = temp_dir / "compile_config.json"
+                    
+                    # Update config with Docker paths
+                    docker_config = config.copy()
+                    docker_config['input_file'] = f"/input/{prepared_input.name}"
+                    docker_config['output_file'] = f"/output/{prepared_output.name}"
+                    
+                    with open(config_file, 'w') as f:
+                        json.dump(docker_config, f, indent=2)
+                    
+                    # Create secure volume mappings
+                    volumes = {
+                        str(prepared_input.parent): {'bind': '/input', 'mode': 'ro'},
+                        str(prepared_output.parent): {'bind': '/output', 'mode': 'rw'},
+                        str(config_file.parent): {'bind': '/config', 'mode': 'ro'}
+                    }
+                    
+                    # Prepare environment variables
+                    environment = {
+                        'CONFIG_FILE': f'/config/{config_file.name}',
+                        'VERBOSE': '1' if self.verbose else '0',
+                        'DEBUG': '1' if self.debug else '0'
+                    }
+                    
+                    # Get and ensure image is available
+                    image_name = self.get_image_name(config['target'])
+                    if not self.ensure_image_available(image_name):
+                        return {
+                            'success': False,
+                            'error': f'Docker image not available: {image_name}',
+                            'logs': f'Failed to pull or build image: {image_name}'
+                        }
+                    
+                    if self.verbose:
+                        print(f"Running compilation with image: {image_name}")
+                        print(f"Input file: {prepared_input}")
+                        print(f"Output file: {prepared_output}")
+                    
+                    # Run container with security constraints
+                    start_time = time.time()
+                    
+                    container = self.client.containers.run(
+                        image_name,
+                        volumes=volumes,
+                        environment=environment,
+                        remove=True,
+                        detach=False,
+                        stdout=True,
+                        stderr=True,
+                        # Security constraints
+                        user='1000:1000',  # Run as non-root user
+                        read_only=True,    # Read-only root filesystem
+                        tmpfs={'/tmp': 'rw,noexec,nosuid,size=100m'},  # Temporary filesystem
+                        mem_limit='2g',    # Memory limit
+                        cpu_quota=100000,  # CPU limit (1 CPU)
+                        network_mode='none',  # No network access
+                        cap_drop=['ALL'],  # Drop all capabilities
+                        security_opt=['no-new-privileges']  # Prevent privilege escalation
+                    )
+                    
+                    compilation_time = time.time() - start_time
+                    
+                    # Parse container output
+                    output_lines = container.decode('utf-8').split('\n')
+                    
+                    # Verify output file was created and is valid
+                    output_valid, output_info = self.file_handler.verify_output_file(
+                        prepared_output, 
+                        config.get('output_format', 'vmfb')
+                    )
+                    
+                    # Build result
+                    result = {
+                        'success': output_valid,
+                        'compilation_time': f"{compilation_time:.2f}s",
+                        'logs': '\n'.join(output_lines),
+                        'input_file': str(prepared_input),
+                        'output_file': str(prepared_output) if output_valid else None,
+                        'output_info': output_info
+                    }
+                    
+                    if output_valid:
+                        file_info = self.file_handler.get_file_info(prepared_output)
+                        result['output_size'] = file_info['size_formatted']
+                        result['output_hash'] = file_info['hash_sha256']
+                    else:
+                        result['error'] = f'Output validation failed: {output_info}'
+                    
+                    # Parse additional results from container output
+                    for line in output_lines:
+                        if line.startswith('VALIDATION_RESULT:'):
+                            result['validation_result'] = line.split(':', 1)[1].strip()
+                        elif line.startswith('BENCHMARK_LATENCY:'):
+                            result['benchmark_results'] = result.get('benchmark_results', {})
+                            result['benchmark_results']['latency_ms'] = float(line.split(':', 1)[1].strip())
+                        elif line.startswith('BENCHMARK_THROUGHPUT:'):
+                            result['benchmark_results'] = result.get('benchmark_results', {})
+                            result['benchmark_results']['throughput_ops_per_sec'] = float(line.split(':', 1)[1].strip())
+                        elif line.startswith('ERROR:'):
+                            result['error'] = line.split(':', 1)[1].strip()
+                    
+                    # Copy output file to target location if specified
+                    if output_valid and target_output_path and target_output_path != prepared_output:
+                        try:
+                            target_output_path.parent.mkdir(parents=True, exist_ok=True)
+                            shutil.copy2(prepared_output, target_output_path)
+                            result['output_file'] = str(target_output_path)
+                            if self.verbose:
+                                print(f"Copied output to: {target_output_path}")
+                        except Exception as e:
+                            result['warning'] = f'Failed to copy output to target location: {e}'
+                    
+                    return result
+                    
+            except Exception as e:
+                return {
+                    'success': False,
+                    'error': f'File preparation error: {e}',
+                    'logs': str(e)
+                }
         
         except ContainerError as e:
             return {
@@ -295,15 +377,17 @@ class DockerManager:
                 'logs': str(e)
             }
     
-    def _format_size(self, size_bytes: int) -> str:
-        """Format size in bytes to human-readable format."""
-        if size_bytes == 0:
-            return "0 B"
-        
-        size_names = ["B", "KB", "MB", "GB", "TB"]
-        i = 0
-        while size_bytes >= 1024 and i < len(size_names) - 1:
-            size_bytes /= 1024.0
-            i += 1
-        
-        return f"{size_bytes:.1f} {size_names[i]}"
+    def cleanup(self) -> None:
+        """Clean up temporary files and resources."""
+        self.file_handler.cleanup_all_temporary_files()
+    
+    def get_file_handler(self) -> SecureFileHandler:
+        """Get the file handler instance for direct access."""
+        return self.file_handler
+    
+    def __del__(self):
+        """Cleanup when manager is destroyed."""
+        try:
+            self.cleanup()
+        except:
+            pass  # Ignore cleanup errors during destruction

@@ -75,7 +75,7 @@ This implementation plan creates a standalone Docker-based IREE compilation serv
     - Set up uv-based test runner
     - _Requirements: 6.1, 10.3_
 
-- [ ] 5. Checkpoint - Ensure basic Docker compilation works
+- [-] 5. Checkpoint - Ensure basic Docker compilation works
   - Ensure all tests pass, ask the user if questions arise.
 
 - [x] 6. Create CLI wrapper and orchestration tools
