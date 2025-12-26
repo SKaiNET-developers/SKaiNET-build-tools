@@ -1,11 +1,12 @@
 # CUDA-enabled IREE Compiler Docker Image
-# Base on nvidia/cuda:12.3-devel-ubuntu22.04 as specified in requirements
-FROM nvidia/cuda:12.3-devel-ubuntu22.04
+# Base on nvidia/cuda:12.4.1-devel-ubuntu22.04 (verified available image)
+FROM nvidia/cuda:12.4.1-devel-ubuntu22.04
 
 # Set environment variables
 ENV DEBIAN_FRONTEND=noninteractive
 ENV PYTHONUNBUFFERED=1
 ENV IREE_VERSION=20241220.123
+ENV CUDA_VERSION=12.4.1
 
 # Install system dependencies
 RUN apt-get update && apt-get install -y \

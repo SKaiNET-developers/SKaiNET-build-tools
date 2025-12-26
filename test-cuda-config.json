@@ -1,0 +1,39 @@
+{
+  "input_file": "/input/test_model.mlir",
+  "output_file": "/output/test_model.vmfb",
+  "target": "cuda",
+  "optimization_level": "O3",
+  "target_features": [
+    "sm_80",
+    "sm_86"
+  ],
+  "output_format": "vmfb",
+  "validation": true,
+  "benchmark": false,
+  "verbose": false,
+  "compilation_options": {
+    "enable_assertions": false,
+    "strip_debug_info": true,
+    "enable_profiling": false,
+    "memory_planning": "default"
+  },
+  "target_specific": {
+    "cuda": {
+      "compute_capability": [
+        "sm_80",
+        "sm_86"
+      ],
+      "max_threads_per_block": 256,
+      "use_fast_math": false
+    },
+    "cpu": null,
+    "vulkan": null,
+    "metal": null
+  },
+  "metadata": {
+    "description": "Example CUDA compilation configuration",
+    "version": "1.0",
+    "author": null,
+    "tags": []
+  }
+}
